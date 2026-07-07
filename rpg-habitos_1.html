@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ascenso — Tu progreso personal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+
+  :root{
+    --bg: #12131c;
+    --bg-2: #0d0e15;
+    --surface: #1b1d2b;
+    --surface-2: #242739;
+    --border: #2e3145;
+    --text: #edeef5;
+    --text-dim: #9295ad;
+    --text-faint: #5c5f76;
+    --gold: #f2b84b;
+    --gold-dim: #7a5f27;
+    --danger: #ff6b6b;
+    --radius: 16px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(155,140,255,0.10), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(242,184,75,0.06), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding:28px 18px 80px;
+  }
+
+  .wrap{ max-width:980px; margin:0 auto; }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:22px; gap:12px; flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand h1{
+    font-family:'Space Grotesk'; font-size:22px; font-weight:700; margin:0;
+    letter-spacing:0.2px;
+  }
+  .brand span{ color:var(--text-faint); font-size:12px; font-family:'JetBrains Mono'; }
+
+  .backup-actions{ display:flex; gap:8px; }
+  .icon-btn{
+    background:var(--surface); border:1px solid var(--border); color:var(--text-dim);
+    padding:8px 12px; border-radius:10px; font-size:12px; cursor:pointer;
+    font-family:'Inter'; font-weight:600; display:flex; align-items:center; gap:6px;
+    transition:all .15s ease;
+  }
+  .icon-btn:hover{ background:var(--surface-2); color:var(--text); border-color:#3a3d55; }
+
+  #import-input{ display:none; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 18px; border-radius:10px; font-size:13px; opacity:0;
+    transition:all .3s ease; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ---------- Character Hub ---------- */
+  .hub{
+    position:relative; overflow:hidden;
+    background:linear-gradient(160deg, var(--surface) 0%, var(--bg-2) 100%);
+    border:1px solid var(--border); border-radius:var(--radius);
+    padding:26px 28px; margin-bottom:26px;
+  }
+  .hub::before{
+    content:''; position:absolute; inset:0;
+    background:repeating-linear-gradient(115deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 46px);
+    pointer-events:none;
+  }
+  .hub-top{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; position:relative; }
+  .hub-level-block{ display:flex; align-items:center; gap:16px; }
+  .hub-level-num{
+    font-family:'Space Grotesk'; font-size:52px; font-weight:700; line-height:1;
+    color:var(--gold); text-shadow:0 0 24px rgba(242,184,75,0.35);
+  }
+  .hub-level-label{ display:flex; flex-direction:column; gap:2px; }
+  .hub-level-label b{ font-size:15px; font-weight:600; }
+  .hub-level-label span{ font-size:12px; color:var(--text-dim); font-family:'JetBrains Mono'; }
+
+  .hub-stats{ display:flex; gap:26px; flex-wrap:wrap; }
+  .hub-stat{ text-align:right; }
+  .hub-stat b{ display:block; font-family:'JetBrains Mono'; font-size:18px; color:var(--text); }
+  .hub-stat span{ font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.06em; }
+
+  .xp-bar-track{
+    margin-top:18px; height:10px; background:var(--surface-2); border-radius:6px; overflow:hidden;
+    border:1px solid var(--border); position:relative;
+  }
+  .xp-bar-fill{
+    height:100%; background:linear-gradient(90deg, var(--gold-dim), var(--gold));
+    border-radius:6px; transition:width .6s cubic-bezier(.4,0,.2,1);
+  }
+  .xp-bar-caption{ display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono'; }
+
+  /* ---------- Facultades grid ---------- */
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin:8px 0 14px; }
+  .section-head h2{ font-family:'Space Grotesk'; font-size:16px; margin:0; color:var(--text); }
+  .add-btn{
+    background:var(--gold); color:#241b06; border:none; padding:9px 16px; border-radius:10px;
+    font-weight:700; font-size:13px; cursor:pointer; font-family:'Inter';
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .add-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(242,184,75,0.25); }
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px;
+  }
+
+  .empty-state{
+    border:1px dashed var(--border); border-radius:var(--radius); padding:40px 20px;
+    text-align:center; color:var(--text-dim); font-size:14px;
+  }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; position:relative; overflow:hidden; transition:transform .18s ease, border-color .18s ease;
+  }
+  .card::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--accent, var(--gold));
+  }
+  .card:hover{ border-color:#3a3d55; }
+  .card.leveling{ animation:cardPulse .9s ease; }
+  @keyframes cardPulse{
+    0%{ transform:scale(1); box-shadow:0 0 0 rgba(242,184,75,0); }
+    30%{ transform:scale(1.035); box-shadow:0 0 30px rgba(242,184,75,0.35); }
+    100%{ transform:scale(1); box-shadow:0 0 0 rgba(242,184,75,0); }
+  }
+
+  .card-top{ display:flex; gap:12px; align-items:center; }
+  .glyph{
+    width:44px; height:44px; border-radius:12px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:color-mix(in srgb, var(--accent) 18%, transparent);
+    border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .glyph svg{ width:22px; height:22px; }
+
+  .card-title{ flex:1; min-width:0; }
+  .card-title b{ display:block; font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-title span{ font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono'; }
+
+  .ring{
+    width:40px; height:40px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--surface-2) 0);
+  }
+  .ring-inner{
+    width:31px; height:31px; border-radius:50%; background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk'; font-weight:700; font-size:13px;
+  }
+
+  .card-progress{ margin-top:14px; }
+  .card-progress-track{ height:6px; background:var(--surface-2); border-radius:4px; overflow:hidden; }
+  .card-progress-fill{ height:100%; background:var(--accent); border-radius:4px; transition:width .4s ease; }
+  .card-progress-caption{ display:flex; justify-content:space-between; margin-top:6px; font-size:10.5px; color:var(--text-faint); font-family:'JetBrains Mono'; }
+
+  .lives{ display:flex; gap:4px; margin-top:12px; }
+  .life{ width:9px; height:9px; transform:rotate(45deg); border-radius:2px; background:var(--surface-2); border:1px solid var(--border); }
+  .life.on{ background:var(--danger); border-color:var(--danger); }
+
+  .card-actions{ margin-top:14px; display:flex; gap:8px; }
+  .checkin-btn{
+    flex:1; background:var(--accent); color:#12131c; border:none; padding:9px 10px;
+    border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; font-family:'Inter';
+    transition:filter .12s ease;
+  }
+  .checkin-btn:hover{ filter:brightness(1.08); }
+  .checkin-btn.done{ background:var(--surface-2); color:var(--text-dim); cursor:default; }
+  .checkin-btn.done:hover{ filter:none; }
+  .del-btn{
+    background:transparent; border:1px solid var(--border); color:var(--text-faint);
+    width:34px; border-radius:9px; cursor:pointer; font-size:13px;
+  }
+  .del-btn:hover{ color:var(--danger); border-color:var(--danger); }
+  .undo-btn{
+    background:transparent; border:1px solid var(--border); color:var(--text-dim);
+    padding:9px 10px; border-radius:9px; cursor:pointer; font-size:12px; font-family:'Inter'; font-weight:600;
+  }
+  .undo-btn:hover{ color:var(--danger); border-color:var(--danger); }
+
+  /* ---------- Achievements ---------- */
+  .badges{ display:flex; gap:10px; flex-wrap:wrap; }
+  .badge{
+    display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border);
+    padding:9px 13px; border-radius:10px; font-size:12px; color:var(--text-dim);
+  }
+  .badge.unlocked{ color:var(--text); border-color:var(--gold-dim); }
+  .badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-faint); }
+  .badge.unlocked .dot{ background:var(--gold); box-shadow:0 0 8px rgba(242,184,75,0.6); }
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(8,9,14,0.7); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:40; padding:20px;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px; width:100%; max-width:400px;
+  }
+  .modal h3{ margin:0 0 16px; font-family:'Space Grotesk'; font-size:17px; }
+  .modal label{ display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; margin-top:14px; }
+  .modal input[type=text]{
+    width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:9px; font-size:13px; font-family:'Inter';
+  }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .chip{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+    padding:6px 11px; border-radius:20px; font-size:12px; cursor:pointer;
+  }
+  .chip:hover{ border-color:#3a3d55; color:var(--text); }
+  .color-row{ display:flex; gap:8px; margin-top:6px; }
+  .swatch{ width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+  .swatch.active{ border-color:var(--text); }
+  .modal-actions{ display:flex; gap:10px; margin-top:22px; }
+  .btn-secondary{ flex:1; background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:10px; border-radius:9px; cursor:pointer; font-family:'Inter'; font-weight:600; }
+  .btn-primary{ flex:1; background:var(--gold); border:none; color:#241b06; padding:10px; border-radius:9px; cursor:pointer; font-weight:700; font-family:'Inter'; }
+
+  .particle{
+    position:absolute; width:5px; height:5px; border-radius:50%; background:var(--gold);
+    pointer-events:none; animation:burst 0.9s ease-out forwards;
+  }
+  @keyframes burst{
+    to{ transform:translate(var(--dx), var(--dy)) scale(0); opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .card.leveling{ animation:none; }
+    .particle{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>⟡ Ascenso</h1>
+      <span>tu progreso, como estadísticas de personaje</span>
+    </div>
+    <div class="backup-actions">
+      <button class="icon-btn" id="export-btn">↓ Exportar copia</button>
+      <button class="icon-btn" id="import-btn">↑ Importar copia</button>
+      <input type="file" id="import-input" accept="application/json">
+    </div>
+  </div>
+
+  <div class="hub">
+    <div class="hub-top">
+      <div class="hub-level-block">
+        <div class="hub-level-num" id="char-level">1</div>
+        <div class="hub-level-label">
+          <b id="char-rank">Aventurero</b>
+          <span id="char-sub">0 XP totales</span>
+        </div>
+      </div>
+      <div class="hub-stats">
+        <div class="hub-stat"><b id="stat-facultades">0</b><span>Facultades</span></div>
+        <div class="hub-stat"><b id="stat-nivelmax">0</b><span>Nivel más alto</span></div>
+        <div class="hub-stat"><b id="stat-racha">0</b><span>Racha activa</span></div>
+      </div>
+    </div>
+    <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar" style="width:0%"></div></div>
+    <div class="xp-bar-caption"><span id="xp-current">0 XP</span><span id="xp-needed">100 XP para el siguiente nivel</span></div>
+  </div>
+
+  <div class="section-head">
+    <h2>Facultades</h2>
+    <button class="add-btn" id="open-add">+ Nueva facultad</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="section-head" style="margin-top:28px;">
+    <h2>Logros</h2>
+  </div>
+  <div class="badges" id="badges"></div>
+
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>Nueva facultad</h3>
+    <label>Elegir una sugerida</label>
+    <div class="chip-row" id="suggested-chips"></div>
+    <label>O escribe la tuya</label>
+    <input type="text" id="new-name" placeholder="Ej. Guitarra, Ahorro, Estiramientos...">
+    <label>Color</label>
+    <div class="color-row" id="color-row"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancel-add">Cancelar</button>
+      <button class="btn-primary" id="confirm-add">Crear</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+
+  const PALETTE = ['#9B8CFF','#4FD1C5','#FF8066','#8BD17D','#5EC8F2','#F27FB0','#F2B84B','#C9A0FF'];
+
+  const SUGGESTED = [
+    {name:'Fuerza', glyph:'dumbbell'},
+    {name:'Mente', glyph:'brain'},
+    {name:'Disciplina', glyph:'flame'},
+    {name:'Salud', glyph:'heart'},
+    {name:'Finanzas', glyph:'coin'},
+    {name:'Creatividad', glyph:'spark'},
+    {name:'Relaciones', glyph:'users'},
+    {name:'Calma', glyph:'leaf'}
+  ];
+
+  const GLYPHS = {
+    dumbbell: '<path d="M4 8v8M20 8v8M2 10v4M22 10v4M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    brain: '<circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2"/><path d="M12 5v14M8 8c0 2 4 2 4 4M16 8c0 2-4 2-4 4" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+    flame: '<path d="M12 2c1 4-3 5-3 9a3 3 0 006 0c0-2-1-3-1-3s2 1 2 4a5 5 0 01-10 0c0-5 4-6 6-10z" fill="currentColor"/>',
+    heart: '<path d="M12 20s-7-4.5-9-9a5 5 0 019-3 5 5 0 019 3c-2 4.5-9 9-9 9z" fill="currentColor"/>',
+    coin: '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9 9.5c0-1 1-1.5 3-1.5s3 .8 3 2-1 1.6-3 2-3 1-3 2 1 2 3 2 3-.5 3-1.5" stroke="currentColor" stroke-width="1.4" fill="none"/>',
+    spark: '<path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" fill="currentColor"/>',
+    users: '<circle cx="8" cy="9" r="3" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="9" r="3" stroke="currentColor" stroke-width="2"/><path d="M2 20c0-3 3-5 6-5s6 2 6 5M12 20c0-3 3-5 6-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    leaf: '<path d="M5 19C5 10 12 4 20 4c0 8-6 15-15 15z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M6 18C10 14 13 11 18 6" stroke="currentColor" stroke-width="1.5"/>',
+    star: '<path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 16.8 6.4 20l1.4-6.3-4.8-4.3 6.4-.6L12 3z" fill="currentColor"/>'
+  };
+
+  const ACHIEVEMENTS = [
+    {id:'first_step', name:'Primer paso', desc:'Completa tu primer día', test: s => s.facultades.some(f=>f.history.length>=1)},
+    {id:'level3', name:'Constancia', desc:'Una facultad llega a nivel 3', test: s => s.facultades.some(f=>f.level>=3)},
+    {id:'five_facs', name:'Multitalento', desc:'5 facultades activas', test: s => s.facultades.length>=5},
+    {id:'level5', name:'Leyenda', desc:'Una facultad llega a nivel 5', test: s => s.facultades.some(f=>f.level>=5)},
+    {id:'week_streak', name:'Racha de 7', desc:'7 días seguidos en una facultad', test: s => s.facultades.some(f=>f.daysCompleted>=7 || f.level>=2 && f.history.length>=7)}
+  ];
+
+  function todayStr(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function diffDays(a,b){
+    const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
+    return Math.round((db-da)/86400000);
+  }
+  function requiredDays(level){ return level<=1 ? 3 : 7*(level-1); }
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+
+  // ======= CONFIGURA AQUÍ TUS CREDENCIALES DE SUPABASE =======
+  const SUPABASE_URL = 'https://rhbayxzlkmcksafdktwf.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_jUpskIpQKbJtFRjfkw5baA_GgqunHqr';
+  const ROW_ID = 'mi-progreso'; // identificador fijo de tu fila de datos
+  // =============================================================
+
+  let state = null;
+  let pendingColor = PALETTE[0];
+
+  const DEFAULT_STATE = () => ({ facultades: [], createdAt: todayStr() });
+
+  async function loadState(){
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/progreso?id=eq.${ROW_ID}&select=data`, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+      if(!res.ok) throw new Error('respuesta no válida de Supabase');
+      const rows = await res.json();
+      if(rows && rows.length > 0 && rows[0].data){
+        state = rows[0].data;
+      }else{
+        state = DEFAULT_STATE();
+        await saveState(true);
+      }
+    }catch(e){
+      showToast('No se pudo conectar con la base de datos. Revisa tu configuración de Supabase.');
+      state = DEFAULT_STATE();
+    }
+  }
+
+  let saveTimer = null;
+  function saveState(immediate){
+    clearTimeout(saveTimer);
+    const doSave = async () => {
+      try{
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/progreso?on_conflict=id`, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ id: ROW_ID, data: state, updated_at: new Date().toISOString() })
+        });
+        if(!res.ok) showToast('No se pudo guardar en la nube');
+      }catch(e){
+        showToast('No se pudo guardar en la nube — revisa tu conexión');
+      }
+    };
+    if(immediate) doSave();
+    else saveTimer = setTimeout(doSave, 400);
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=> t.classList.remove('show'), 2600);
+  }
+
+  function applyDecay(fac, today){
+    if(!fac.lastCompletedDate) return;
+    const gap = diffDays(fac.lastCompletedDate, today);
+    const totalMissed = Math.max(0, gap - 1);
+    if(totalMissed > (fac.penalizedMissed||0)){
+      const delta = totalMissed - (fac.penalizedMissed||0);
+      fac.lives -= delta;
+      fac.penalizedMissed = totalMissed;
+      if(fac.lives <= 0){
+        fac.lives = 5;
+        fac.daysCompleted = 0;
+        fac.penalizedMissed = 0;
+        fac.lastCompletedDate = today; // fresh start, avoid repeat wipes same day
+        fac.wiped = true;
+      }
+    }
+  }
+
+  function runDecayForAll(){
+    const today = todayStr();
+    state.facultades.forEach(f => applyDecay(f, today));
+  }
+
+  function checkIn(id){
+    const fac = state.facultades.find(f=>f.id===id);
+    if(!fac) return;
+    const today = todayStr();
+    if(fac.lastCompletedDate === today) return;
+    applyDecay(fac, today);
+    fac.undoSnapshot = {
+      level: fac.level,
+      daysCompleted: fac.daysCompleted,
+      lives: fac.lives,
+      penalizedMissed: fac.penalizedMissed,
+      totalXP: fac.totalXP,
+      lastCompletedDate: fac.lastCompletedDate,
+      historyLength: fac.history.length
+    };
+    fac.daysCompleted++;
+    fac.penalizedMissed = 0;
+    fac.lastCompletedDate = today;
+    fac.history.push(today);
+    const xpGain = 10 + fac.level*5;
+    fac.totalXP += xpGain;
+    let leveledUp = false;
+    if(fac.daysCompleted >= requiredDays(fac.level)){
+      fac.level++;
+      fac.daysCompleted = 0;
+      fac.lives = 5;
+      fac.totalXP += 30*fac.level;
+      leveledUp = true;
+    }
+    saveState();
+    render();
+    if(leveledUp) triggerLevelUpFx(fac.id);
+  }
+
+  function uncheckIn(id){
+    const fac = state.facultades.find(f=>f.id===id);
+    if(!fac || !fac.undoSnapshot) return;
+    const today = todayStr();
+    if(fac.lastCompletedDate !== today) return; // solo se puede deshacer el día actual
+    const snap = fac.undoSnapshot;
+    fac.level = snap.level;
+    fac.daysCompleted = snap.daysCompleted;
+    fac.lives = snap.lives;
+    fac.penalizedMissed = snap.penalizedMissed;
+    fac.totalXP = snap.totalXP;
+    fac.lastCompletedDate = snap.lastCompletedDate;
+    fac.history = fac.history.slice(0, snap.historyLength);
+    delete fac.undoSnapshot;
+    saveState();
+    render();
+    showToast('Progreso de hoy deshecho');
+  }
+
+  function deleteFac(id){
+    if(!confirm('¿Eliminar esta facultad? Se perderá su progreso.')) return;
+    state.facultades = state.facultades.filter(f=>f.id!==id);
+    saveState();
+    render();
+  }
+
+  function addFacultad(name, colorIdx, glyph){
+    if(!name || !name.trim()) return;
+    state.facultades.push({
+      id: uid(),
+      name: name.trim(),
+      color: colorIdx,
+      glyph: glyph || 'star',
+      level: 1,
+      daysCompleted: 0,
+      lives: 5,
+      penalizedMissed: 0,
+      totalXP: 0,
+      lastCompletedDate: null,
+      history: [],
+      createdAt: todayStr()
+    });
+    saveState();
+    render();
+  }
+
+  function totalXPAll(){ return state.facultades.reduce((a,f)=>a+f.totalXP,0); }
+
+  function computeCharLevel(totalXP){
+    let level=1, remaining=totalXP, thresh=100;
+    while(remaining >= thresh){ remaining -= thresh; level++; thresh = 100*level; }
+    return {level, currentXP:remaining, neededXP:thresh};
+  }
+
+  const RANKS = ['Aventurero','Explorador','Estratega','Veterano','Campeón','Maestro','Leyenda viva'];
+  function rankFor(level){ return RANKS[Math.min(level-1, RANKS.length-1)]; }
+
+  function triggerLevelUpFx(id){
+    const card = document.querySelector(`[data-id="${id}"]`);
+    if(!card) return;
+    card.classList.add('leveling');
+    for(let i=0;i<14;i++){
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const angle = Math.random()*Math.PI*2;
+      const dist = 40 + Math.random()*40;
+      p.style.setProperty('--dx', Math.cos(angle)*dist+'px');
+      p.style.setProperty('--dy', Math.sin(angle)*dist+'px');
+      p.style.left = '50%'; p.style.top = '20px';
+      card.appendChild(p);
+      setTimeout(()=>p.remove(), 950);
+    }
+    setTimeout(()=> card.classList.remove('leveling'), 950);
+    showToast(`¡Subió de nivel! Nivel ${state.facultades.find(f=>f.id===id).level}`);
+  }
+
+  function renderHub(){
+    const total = totalXPAll();
+    const {level, currentXP, neededXP} = computeCharLevel(total);
+    document.getElementById('char-level').textContent = level;
+    document.getElementById('char-rank').textContent = rankFor(level);
+    document.getElementById('char-sub').textContent = `${total} XP totales`;
+    document.getElementById('xp-bar').style.width = `${Math.min(100,(currentXP/neededXP)*100)}%`;
+    document.getElementById('xp-current').textContent = `${currentXP} XP`;
+    document.getElementById('xp-needed').textContent = `${neededXP} XP para el siguiente nivel`;
+
+    document.getElementById('stat-facultades').textContent = state.facultades.length;
+    const maxLevel = state.facultades.reduce((m,f)=>Math.max(m,f.level),0);
+    document.getElementById('stat-nivelmax').textContent = maxLevel;
+    const activeStreaks = state.facultades.filter(f=>f.lastCompletedDate===todayStr()).length;
+    document.getElementById('stat-racha').textContent = activeStreaks;
+  }
+
+  function renderGrid(){
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    if(state.facultades.length === 0){
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Aún no tienes facultades. Crea la primera con "+ Nueva facultad" para empezar tu ascenso.</div>`;
+      return;
+    }
+    const today = todayStr();
+    state.facultades.forEach(fac=>{
+      const need = requiredDays(fac.level);
+      const pct = Math.round((fac.daysCompleted/need)*100);
+      const doneToday = fac.lastCompletedDate === today;
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.id = fac.id;
+      card.style.setProperty('--accent', fac.color);
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="glyph" style="color:${fac.color}">${GLYPHS[fac.glyph]?`<svg viewBox="0 0 24 24">${GLYPHS[fac.glyph]}</svg>`:''}</div>
+          <div class="card-title">
+            <b>${escapeHtml(fac.name)}</b>
+            <span>${fac.history.length} días totales</span>
+          </div>
+          <div class="ring" style="--pct:${pct}"><div class="ring-inner">${fac.level}</div></div>
+        </div>
+        <div class="card-progress">
+          <div class="card-progress-track"><div class="card-progress-fill" style="width:${pct}%"></div></div>
+          <div class="card-progress-caption"><span>${fac.daysCompleted}/${need} días</span><span>nivel ${fac.level} → ${fac.level+1}</span></div>
+        </div>
+        <div class="lives">${[0,1,2,3,4].map(i=>`<div class="life ${i<fac.lives?'on':''}"></div>`).join('')}</div>
+        <div class="card-actions">
+          <button class="checkin-btn ${doneToday?'done':''}" data-action="checkin" data-id="${fac.id}" ${doneToday?'disabled':''}>${doneToday?'Completado hoy ✓':'Marcar hoy'}</button>
+          ${doneToday && fac.undoSnapshot ? `<button class="undo-btn" data-action="undo" data-id="${fac.id}">Deshacer</button>` : ''}
+          <button class="del-btn" data-action="delete" data-id="${fac.id}">✕</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function renderBadges(){
+    const wrap = document.getElementById('badges');
+    wrap.innerHTML = '';
+    ACHIEVEMENTS.forEach(a=>{
+      const unlocked = a.test(state);
+      const el = document.createElement('div');
+      el.className = 'badge' + (unlocked?' unlocked':'');
+      el.innerHTML = `<span class="dot"></span><span>${a.name} — ${a.desc}</span>`;
+      wrap.appendChild(el);
+    });
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function render(){
+    renderHub();
+    renderGrid();
+    renderBadges();
+  }
+
+  // ---------- Modal ----------
+  const overlay = document.getElementById('overlay');
+  function openModal(){
+    document.getElementById('new-name').value = '';
+    pendingColor = PALETTE[state.facultades.length % PALETTE.length];
+    buildColorRow();
+    overlay.classList.add('show');
+  }
+  function closeModal(){ overlay.classList.remove('show'); }
+
+  function buildColorRow(){
+    const row = document.getElementById('color-row');
+    row.innerHTML = '';
+    PALETTE.forEach(c=>{
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (c===pendingColor?' active':'');
+      sw.style.background = c;
+      sw.addEventListener('click', ()=>{ pendingColor = c; buildColorRow(); });
+      row.appendChild(sw);
+    });
+  }
+
+  function buildSuggestedChips(){
+    const row = document.getElementById('suggested-chips');
+    row.innerHTML = '';
+    SUGGESTED.forEach(s=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = s.name;
+      chip.addEventListener('click', ()=>{
+        document.getElementById('new-name').value = s.name;
+        chip.dataset.glyph = s.glyph;
+        document.getElementById('confirm-add').dataset.glyph = s.glyph;
+      });
+      row.appendChild(chip);
+    });
+  }
+
+  document.getElementById('open-add').addEventListener('click', openModal);
+  document.getElementById('cancel-add').addEventListener('click', closeModal);
+  document.getElementById('confirm-add').addEventListener('click', ()=>{
+    const name = document.getElementById('new-name').value;
+    const glyph = document.getElementById('confirm-add').dataset.glyph || 'star';
+    addFacultad(name, pendingColor, glyph);
+    document.getElementById('confirm-add').dataset.glyph = '';
+    closeModal();
+  });
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+
+  document.getElementById('grid').addEventListener('click', e=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    if(btn.dataset.action === 'checkin') checkIn(id);
+    if(btn.dataset.action === 'undo') uncheckIn(id);
+    if(btn.dataset.action === 'delete') deleteFac(id);
+  });
+
+  // ---------- Backup manual ----------
+  document.getElementById('export-btn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ascenso-progreso-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Copia de seguridad descargada');
+  });
+
+  document.getElementById('import-btn').addEventListener('click', ()=>{
+    document.getElementById('import-input').click();
+  });
+  document.getElementById('import-input').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || !Array.isArray(parsed.facultades)) throw new Error('formato inválido');
+        state = parsed;
+        runDecayForAll();
+        saveState();
+        render();
+        showToast('Copia de seguridad importada');
+      }catch(err){
+        showToast('El archivo no tiene un formato válido');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ---------- Init ----------
+  (async function init(){
+    buildSuggestedChips();
+    await loadState();
+    runDecayForAll();
+    saveState();
+    render();
+  })();
+
+})();
+</script>
+</body>
+</html>
