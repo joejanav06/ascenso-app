@@ -225,6 +225,7 @@
     padding:6px 11px; border-radius:20px; font-size:12px; cursor:pointer;
   }
   .chip:hover{ border-color:#3a3d55; color:var(--text); }
+  .chip.active{ background:var(--gold); color:#241b06; border-color:var(--gold); font-weight:700; }
   .color-row{ display:flex; gap:8px; margin-top:6px; }
   .swatch{ width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
   .swatch.active{ border-color:var(--text); }
@@ -303,6 +304,8 @@
     <input type="text" id="new-name" placeholder="Ej. Guitarra, Ahorro, Estiramientos...">
     <label>Color</label>
     <div class="color-row" id="color-row"></div>
+    <label>¿Cuántas veces por semana?</label>
+    <div class="chip-row" id="freq-row"></div>
     <div class="modal-actions">
       <button class="btn-secondary" id="cancel-add">Cancelar</button>
       <button class="btn-primary" id="confirm-add">Crear</button>
@@ -356,6 +359,13 @@
     const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
     return Math.round((db-da)/86400000);
   }
+  function mondayOf(dateStr){
+    const d = new Date(dateStr+'T00:00:00');
+    const day = d.getDay(); // 0=Dom,1=Lun,...6=Sáb
+    const diff = day===0 ? -6 : 1-day;
+    d.setDate(d.getDate()+diff);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
   function requiredDays(level){ return level<=1 ? 3 : 7*(level-1); }
   function uid(){ return Math.random().toString(36).slice(2,10); }
 
@@ -367,6 +377,7 @@
 
   let state = null;
   let pendingColor = PALETTE[0];
+  let pendingFrequency = 7;
 
   const DEFAULT_STATE = () => ({ facultades: [], createdAt: todayStr() });
 
@@ -424,21 +435,25 @@
   }
 
   function applyDecay(fac, today){
-    if(!fac.lastCompletedDate) return;
-    const gap = diffDays(fac.lastCompletedDate, today);
-    const totalMissed = Math.max(0, gap - 1);
-    if(totalMissed > (fac.penalizedMissed||0)){
-      const delta = totalMissed - (fac.penalizedMissed||0);
-      fac.lives -= delta;
-      fac.penalizedMissed = totalMissed;
+    if(fac.weeklyTarget === undefined) fac.weeklyTarget = 7; // compatibilidad con facultades antiguas (diarias)
+    if(fac.weekCompletions === undefined) fac.weekCompletions = 0;
+    const wkStart = mondayOf(today);
+    if(!fac.currentWeekStart){ fac.currentWeekStart = wkStart; return; } // primera vez, sin penalización
+    if(fac.currentWeekStart === wkStart) return; // misma semana, nada que evaluar aún
+
+    const weeksElapsed = Math.max(1, Math.round(diffDays(fac.currentWeekStart, wkStart)/7));
+    let missed = Math.max(0, fac.weeklyTarget - fac.weekCompletions);
+    if(weeksElapsed > 1) missed += (weeksElapsed-1) * fac.weeklyTarget; // semanas completas saltadas
+
+    if(missed > 0){
+      fac.lives -= missed;
       if(fac.lives <= 0){
         fac.lives = 5;
         fac.daysCompleted = 0;
-        fac.penalizedMissed = 0;
-        fac.lastCompletedDate = today; // fresh start, avoid repeat wipes same day
-        fac.wiped = true;
       }
     }
+    fac.weekCompletions = 0;
+    fac.currentWeekStart = wkStart;
   }
 
   function runDecayForAll(){
@@ -456,13 +471,13 @@
       level: fac.level,
       daysCompleted: fac.daysCompleted,
       lives: fac.lives,
-      penalizedMissed: fac.penalizedMissed,
+      weekCompletions: fac.weekCompletions,
       totalXP: fac.totalXP,
       lastCompletedDate: fac.lastCompletedDate,
       historyLength: fac.history.length
     };
     fac.daysCompleted++;
-    fac.penalizedMissed = 0;
+    fac.weekCompletions = (fac.weekCompletions||0) + 1;
     fac.lastCompletedDate = today;
     fac.history.push(today);
     const xpGain = 10 + fac.level*5;
@@ -489,7 +504,7 @@
     fac.level = snap.level;
     fac.daysCompleted = snap.daysCompleted;
     fac.lives = snap.lives;
-    fac.penalizedMissed = snap.penalizedMissed;
+    fac.weekCompletions = snap.weekCompletions;
     fac.totalXP = snap.totalXP;
     fac.lastCompletedDate = snap.lastCompletedDate;
     fac.history = fac.history.slice(0, snap.historyLength);
@@ -499,6 +514,19 @@
     showToast('Progreso de hoy deshecho');
   }
 
+  function editFrequency(id){
+    const fac = state.facultades.find(f=>f.id===id);
+    if(!fac) return;
+    const val = prompt(`¿Cuántas veces por semana quieres hacer "${fac.name}"? (1 a 7)`, fac.weeklyTarget||7);
+    if(val===null) return;
+    const n = parseInt(val,10);
+    if(isNaN(n) || n<1 || n>7){ showToast('Ingresa un número entre 1 y 7'); return; }
+    fac.weeklyTarget = n;
+    saveState();
+    render();
+    showToast('Frecuencia actualizada');
+  }
+
   function deleteFac(id){
     if(!confirm('¿Eliminar esta facultad? Se perderá su progreso.')) return;
     state.facultades = state.facultades.filter(f=>f.id!==id);
@@ -506,7 +534,7 @@
     render();
   }
 
-  function addFacultad(name, colorIdx, glyph){
+  function addFacultad(name, colorIdx, glyph, weeklyTarget){
     if(!name || !name.trim()) return;
     state.facultades.push({
       id: uid(),
@@ -516,7 +544,9 @@
       level: 1,
       daysCompleted: 0,
       lives: 5,
-      penalizedMissed: 0,
+      weeklyTarget: weeklyTarget || 7,
+      weekCompletions: 0,
+      currentWeekStart: mondayOf(todayStr()),
       totalXP: 0,
       lastCompletedDate: null,
       history: [],
@@ -585,6 +615,9 @@
       const need = requiredDays(fac.level);
       const pct = Math.round((fac.daysCompleted/need)*100);
       const doneToday = fac.lastCompletedDate === today;
+      const weeklyTarget = fac.weeklyTarget || 7;
+      const weekCompletions = fac.weekCompletions || 0;
+      const freqLabel = weeklyTarget===7 ? 'Diario' : `${weeklyTarget}x por semana`;
       const card = document.createElement('div');
       card.className = 'card';
       card.dataset.id = fac.id;
@@ -594,18 +627,19 @@
           <div class="glyph" style="color:${fac.color}">${GLYPHS[fac.glyph]?`<svg viewBox="0 0 24 24">${GLYPHS[fac.glyph]}</svg>`:''}</div>
           <div class="card-title">
             <b>${escapeHtml(fac.name)}</b>
-            <span>${fac.history.length} días totales</span>
+            <span>${freqLabel} · ${weekCompletions}/${weeklyTarget} esta semana</span>
           </div>
           <div class="ring" style="--pct:${pct}"><div class="ring-inner">${fac.level}</div></div>
         </div>
         <div class="card-progress">
           <div class="card-progress-track"><div class="card-progress-fill" style="width:${pct}%"></div></div>
-          <div class="card-progress-caption"><span>${fac.daysCompleted}/${need} días</span><span>nivel ${fac.level} → ${fac.level+1}</span></div>
+          <div class="card-progress-caption"><span>${fac.daysCompleted}/${need} veces</span><span>nivel ${fac.level} → ${fac.level+1}</span></div>
         </div>
         <div class="lives">${[0,1,2,3,4].map(i=>`<div class="life ${i<fac.lives?'on':''}"></div>`).join('')}</div>
         <div class="card-actions">
           <button class="checkin-btn ${doneToday?'done':''}" data-action="checkin" data-id="${fac.id}" ${doneToday?'disabled':''}>${doneToday?'Completado hoy ✓':'Marcar hoy'}</button>
           ${doneToday && fac.undoSnapshot ? `<button class="undo-btn" data-action="undo" data-id="${fac.id}">Deshacer</button>` : ''}
+          <button class="del-btn" data-action="freq" data-id="${fac.id}" title="Cambiar frecuencia">⚙</button>
           <button class="del-btn" data-action="delete" data-id="${fac.id}">✕</button>
         </div>
       `;
@@ -640,10 +674,24 @@
   function openModal(){
     document.getElementById('new-name').value = '';
     pendingColor = PALETTE[state.facultades.length % PALETTE.length];
+    pendingFrequency = 7;
     buildColorRow();
+    buildFreqRow();
     overlay.classList.add('show');
   }
   function closeModal(){ overlay.classList.remove('show'); }
+
+  function buildFreqRow(){
+    const row = document.getElementById('freq-row');
+    row.innerHTML = '';
+    [1,2,3,4,5,6,7].forEach(n=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (n===pendingFrequency?' active':'');
+      chip.textContent = n===7 ? 'Diario' : `${n}x/sem`;
+      chip.addEventListener('click', ()=>{ pendingFrequency = n; buildFreqRow(); });
+      row.appendChild(chip);
+    });
+  }
 
   function buildColorRow(){
     const row = document.getElementById('color-row');
@@ -678,7 +726,7 @@
   document.getElementById('confirm-add').addEventListener('click', ()=>{
     const name = document.getElementById('new-name').value;
     const glyph = document.getElementById('confirm-add').dataset.glyph || 'star';
-    addFacultad(name, pendingColor, glyph);
+    addFacultad(name, pendingColor, glyph, pendingFrequency);
     document.getElementById('confirm-add').dataset.glyph = '';
     closeModal();
   });
@@ -690,6 +738,7 @@
     const id = btn.dataset.id;
     if(btn.dataset.action === 'checkin') checkIn(id);
     if(btn.dataset.action === 'undo') uncheckIn(id);
+    if(btn.dataset.action === 'freq') editFrequency(id);
     if(btn.dataset.action === 'delete') deleteFac(id);
   });
 
