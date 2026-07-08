@@ -297,10 +297,12 @@
 
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h3>Nueva facultad</h3>
-    <label>Elegir una sugerida</label>
-    <div class="chip-row" id="suggested-chips"></div>
-    <label>O escribe la tuya</label>
+    <h3 id="modal-title">Nueva facultad</h3>
+    <div id="suggested-section">
+      <label>Elegir una sugerida</label>
+      <div class="chip-row" id="suggested-chips"></div>
+    </div>
+    <label id="name-label">O escribe la tuya</label>
     <input type="text" id="new-name" placeholder="Ej. Guitarra, Ahorro, Estiramientos...">
     <label>Color</label>
     <div class="color-row" id="color-row"></div>
@@ -378,6 +380,7 @@
   let state = null;
   let pendingColor = PALETTE[0];
   let pendingFrequency = 7;
+  let editingId = null;
 
   const DEFAULT_STATE = () => ({ facultades: [], createdAt: todayStr() });
 
@@ -514,19 +517,6 @@
     showToast('Progreso de hoy deshecho');
   }
 
-  function editFrequency(id){
-    const fac = state.facultades.find(f=>f.id===id);
-    if(!fac) return;
-    const val = prompt(`¿Cuántas veces por semana quieres hacer "${fac.name}"? (1 a 7)`, fac.weeklyTarget||7);
-    if(val===null) return;
-    const n = parseInt(val,10);
-    if(isNaN(n) || n<1 || n>7){ showToast('Ingresa un número entre 1 y 7'); return; }
-    fac.weeklyTarget = n;
-    saveState();
-    render();
-    showToast('Frecuencia actualizada');
-  }
-
   function deleteFac(id){
     if(!confirm('¿Eliminar esta facultad? Se perderá su progreso.')) return;
     state.facultades = state.facultades.filter(f=>f.id!==id);
@@ -639,7 +629,7 @@
         <div class="card-actions">
           <button class="checkin-btn ${doneToday?'done':''}" data-action="checkin" data-id="${fac.id}" ${doneToday?'disabled':''}>${doneToday?'Completado hoy ✓':'Marcar hoy'}</button>
           ${doneToday && fac.undoSnapshot ? `<button class="undo-btn" data-action="undo" data-id="${fac.id}">Deshacer</button>` : ''}
-          <button class="del-btn" data-action="freq" data-id="${fac.id}" title="Cambiar frecuencia">⚙</button>
+          <button class="del-btn" data-action="edit" data-id="${fac.id}" title="Editar facultad">⚙</button>
           <button class="del-btn" data-action="delete" data-id="${fac.id}">✕</button>
         </div>
       `;
@@ -671,15 +661,25 @@
 
   // ---------- Modal ----------
   const overlay = document.getElementById('overlay');
-  function openModal(){
-    document.getElementById('new-name').value = '';
-    pendingColor = PALETTE[state.facultades.length % PALETTE.length];
-    pendingFrequency = 7;
+  function openModal(facId){
+    editingId = facId || null;
+    const fac = editingId ? state.facultades.find(f=>f.id===editingId) : null;
+
+    document.getElementById('modal-title').textContent = fac ? 'Editar facultad' : 'Nueva facultad';
+    document.getElementById('confirm-add').textContent = fac ? 'Guardar cambios' : 'Crear';
+    document.getElementById('suggested-section').style.display = fac ? 'none' : 'block';
+    document.getElementById('name-label').textContent = fac ? 'Nombre' : 'O escribe la tuya';
+    document.getElementById('new-name').value = fac ? fac.name : '';
+    document.getElementById('confirm-add').dataset.glyph = fac ? fac.glyph : '';
+
+    pendingColor = fac ? fac.color : PALETTE[state.facultades.length % PALETTE.length];
+    pendingFrequency = fac ? (fac.weeklyTarget || 7) : 7;
+
     buildColorRow();
     buildFreqRow();
     overlay.classList.add('show');
   }
-  function closeModal(){ overlay.classList.remove('show'); }
+  function closeModal(){ overlay.classList.remove('show'); editingId = null; }
 
   function buildFreqRow(){
     const row = document.getElementById('freq-row');
@@ -721,12 +721,24 @@
     });
   }
 
-  document.getElementById('open-add').addEventListener('click', openModal);
+  document.getElementById('open-add').addEventListener('click', ()=>openModal(null));
   document.getElementById('cancel-add').addEventListener('click', closeModal);
   document.getElementById('confirm-add').addEventListener('click', ()=>{
     const name = document.getElementById('new-name').value;
     const glyph = document.getElementById('confirm-add').dataset.glyph || 'star';
-    addFacultad(name, pendingColor, glyph, pendingFrequency);
+    if(editingId){
+      const fac = state.facultades.find(f=>f.id===editingId);
+      if(fac && name && name.trim()){
+        fac.name = name.trim();
+        fac.color = pendingColor;
+        fac.weeklyTarget = pendingFrequency;
+        saveState();
+        render();
+        showToast('Facultad actualizada');
+      }
+    }else{
+      addFacultad(name, pendingColor, glyph, pendingFrequency);
+    }
     document.getElementById('confirm-add').dataset.glyph = '';
     closeModal();
   });
@@ -738,7 +750,7 @@
     const id = btn.dataset.id;
     if(btn.dataset.action === 'checkin') checkIn(id);
     if(btn.dataset.action === 'undo') uncheckIn(id);
-    if(btn.dataset.action === 'freq') editFrequency(id);
+    if(btn.dataset.action === 'edit') openModal(id);
     if(btn.dataset.action === 'delete') deleteFac(id);
   });
 
